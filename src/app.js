@@ -12,6 +12,11 @@ import { exportHistoryJson, getHistoryExportFilename, importHistoryJson } from '
 import { formatMoney, parseMoney, roundToCents } from './lib/money.js';
 import { annualIncomeTax } from './lib/tax.js';
 import {
+  HISTORY_YTD_FIELDS,
+  applyHistoryYtdToForm,
+  getChangedHistoryYtdFields
+} from './lib/ytdForm.js';
+import {
   BC_2026_RATES,
   getBc2026AnnualTaxRates,
   getBc2026RatesForDate,
@@ -94,6 +99,7 @@ Alpine.data('remitReadyCalculator', () => ({
   errors: [],
   history: [],
   historyMessage: '',
+  touchedYtdFields: {},
   hasUnsavedChanges: false,
   helpDialog: null,
   inspectedEffectivePeriod: '',
@@ -224,19 +230,39 @@ Alpine.data('remitReadyCalculator', () => ({
     return Boolean(this.result) && this.resultSignature === formSignature(this.form);
   },
 
-  applyHistoryYtd(message) {
+  markYtdFieldTouched(field) {
+    this.touchedYtdFields = { ...this.touchedYtdFields, [field]: true };
+  },
+
+  clearTouchedYtdFields(fields = HISTORY_YTD_FIELDS) {
+    const nextTouched = { ...this.touchedYtdFields };
+    for (const field of fields) {
+      delete nextTouched[field];
+    }
+    this.touchedYtdFields = nextTouched;
+  },
+
+  get touchedChangedYtdFields() {
+    if (this.history.length === 0) return [];
+    const ytd = deriveYtdFromHistory(this.history, this.taxYear);
+    return getChangedHistoryYtdFields(this.form, ytd, Object.keys(this.touchedYtdFields));
+  },
+
+  applyHistoryYtd(message, fields = HISTORY_YTD_FIELDS) {
     if (this.history.length === 0) return;
     const displayMessage = typeof message === 'string'
       ? message
-      : 'Reset YTD fields from saved history. Use this only after manually editing YTD fields.';
+      : 'Restored touched YTD fields from saved history.';
     const ytd = deriveYtdFromHistory(this.history, this.taxYear);
-    this.form.ytdPriorLumpSums = String(ytd.ytdPriorLumpSums);
-    this.form.ytdPensionableEarnings = String(ytd.ytdPensionableEarnings);
-    this.form.ytdEmployeeCpp = String(ytd.ytdEmployeeCpp);
-    this.form.ytdEmployeeCpp2 = String(ytd.ytdEmployeeCpp2);
-    this.form.ytdIncomeTaxWithheld = String(ytd.ytdIncomeTaxWithheld);
-    this.calculate();
+    applyHistoryYtdToForm(this.form, ytd, fields);
+    this.clearTouchedYtdFields(fields);
     this.historyMessage = displayMessage;
+  },
+
+  resetTouchedYtdFields() {
+    const fields = this.touchedChangedYtdFields;
+    if (fields.length === 0) return;
+    this.applyHistoryYtd(undefined, fields);
   },
 
   addCurrentPayment() {
@@ -253,11 +279,8 @@ Alpine.data('remitReadyCalculator', () => ({
     });
     this.history = [...this.history, record];
     const ytd = deriveYtdFromHistory(this.history, this.taxYear);
-    this.form.ytdPriorLumpSums = String(ytd.ytdPriorLumpSums);
-    this.form.ytdPensionableEarnings = String(ytd.ytdPensionableEarnings);
-    this.form.ytdEmployeeCpp = String(ytd.ytdEmployeeCpp);
-    this.form.ytdEmployeeCpp2 = String(ytd.ytdEmployeeCpp2);
-    this.form.ytdIncomeTaxWithheld = String(ytd.ytdIncomeTaxWithheld);
+    applyHistoryYtdToForm(this.form, ytd);
+    this.clearTouchedYtdFields();
     this.resultSignature = null;
     this.hasUnsavedChanges = true;
     this.historyMessage = 'Added this calculation to session history and refreshed YTD fields for the next payment.';
@@ -288,6 +311,7 @@ Alpine.data('remitReadyCalculator', () => ({
       incomeTaxWithheld
     });
     this.history = [...this.history, record];
+    this.clearTouchedYtdFields();
     this.hasUnsavedChanges = true;
     this.historyMessage = 'Added opening YTD balance to session history. Export JSON to preserve prior payroll context.';
     this.errors = [];
@@ -472,12 +496,15 @@ Alpine.data('remitReadyCalculator', () => ({
 
   get historyApplyPreview() {
     const ytd = deriveYtdFromHistory(this.history, this.taxYear);
-    const canApply = this.history.length > 0;
+    const changedFields = this.touchedChangedYtdFields;
+    const canApply = changedFields.length > 0;
     return {
       canApply,
       status: canApply
-        ? `Recovery action: resets the form to ${formatMoney(ytd.ytdPriorLumpSums)} saved gross pay. Use only if you manually changed YTD fields and want history totals back.`
-        : 'Import JSON or add an opening balance/current payment first.'
+        ? `Recovery action: restores ${changedFields.length} touched YTD field${changedFields.length === 1 ? '' : 's'} from ${formatMoney(ytd.ytdPriorLumpSums)} saved gross pay.`
+        : this.history.length > 0
+          ? 'YTD fields match saved history.'
+          : 'Import JSON or add an opening balance/current payment first.'
     };
   },
 
