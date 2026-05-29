@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RemitReady Canada</title>
+  </head>
+  <body>
+    <main class="mx-auto max-w-[1440px] px-5 py-6 text-ink" x-data="remitReadyCalculator()" @keydown.escape.window="closeHelp" x-cloak>
+      <header class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 class="text-4xl font-black leading-tight tracking-normal">RemitReady Canada</h1>
+          <p class="mt-1 text-sm font-bold text-teal-dark">Currently supports British Columbia · 2026 tax year</p>
+        </div>
+        <p class="max-w-[460px] rounded-md border border-line bg-white px-4 py-3 text-sm leading-6 text-muted">
+          Uses CRA 2026 source constants by payment date. JSON history is explicit: import it at start, export it when done.
+        </p>
+      </header>
+
+      <nav class="mb-4 flex flex-wrap gap-2 rounded-lg border border-line bg-white p-2">
+        <button class="h-10 rounded-md px-4 text-sm font-black" :class="activeView === 'calculator' ? 'bg-teal text-white' : 'bg-soft text-teal-dark'" @click="activeView = 'calculator'" type="button">Calculator</button>
+        <button class="h-10 rounded-md px-4 text-sm font-black" :class="activeView === 'constants' ? 'bg-teal text-white' : 'bg-soft text-teal-dark'" @click="activeView = 'constants'" type="button">2026 constants</button>
+      </nav>
+
+      <section class="mb-4 rounded-lg border border-amber/30 bg-amber/10 px-4 py-3 text-sm font-bold leading-6 text-ink">
+        Best-guess estimate only. Revalidate final payroll deductions against the official CRA PDOC calculator before remitting. This project provides no payroll, tax, legal, or accounting advice and accepts no responsibility for remittance errors or other losses.
+      </section>
+
+      <div x-show="activeView === 'calculator'">
+      <section class="mb-4 grid gap-3 lg:grid-cols-4">
+        <div class="rounded-lg border border-teal bg-white p-4">
+          <div class="flex items-center gap-3">
+            <span class="grid size-9 place-items-center rounded-full bg-teal text-sm font-black text-white">1</span>
+            <div>
+              <strong class="block text-sm">Load history</strong>
+              <span class="text-xs font-bold text-muted">Import or start clean</span>
+            </div>
+          </div>
+        </div>
+        <div class="rounded-lg border border-line bg-white p-4">
+          <div class="flex items-center gap-3">
+            <span class="grid size-9 place-items-center rounded-full bg-teal text-sm font-black text-white">2</span>
+            <div>
+              <strong class="block text-sm">Set current payment</strong>
+              <span class="text-xs font-bold text-muted">Gross pay + YTD context</span>
+            </div>
+          </div>
+        </div>
+        <div class="rounded-lg border border-line bg-white p-4">
+          <div class="flex items-center gap-3">
+            <span class="grid size-9 place-items-center rounded-full bg-teal text-sm font-black text-white">3</span>
+            <div>
+              <strong class="block text-sm">Review remittance</strong>
+              <span class="text-xs font-bold text-muted">CPP, tax, net pay</span>
+            </div>
+          </div>
+        </div>
+        <div class="rounded-lg border border-line bg-white p-4">
+          <div class="flex items-center gap-3">
+            <span class="grid size-9 place-items-center rounded-full bg-teal text-sm font-black text-white">4</span>
+            <div>
+              <strong class="block text-sm">Export and validate</strong>
+              <span class="text-xs font-bold text-muted">Save JSON + year-end check</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-4 grid gap-4 xl:grid-cols-[300px_390px_minmax(0,1fr)]">
+        <aside class="rounded-lg border border-line bg-panel p-5 shadow-sm">
+          <div class="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-black tracking-normal">History & YTD context</h2>
+              <p class="mt-1 text-sm text-muted">Use saved records to seed the current payment.</p>
+            </div>
+            <span class="min-w-[68px] rounded-full bg-soft px-4 py-2 text-center text-xs font-black leading-none text-muted" x-text="historyCountLabel"></span>
+          </div>
+
+          <label class="mb-3 grid min-w-0 gap-1.5 text-sm font-bold text-muted">
+            Import history JSON
+            <input class="block min-w-0 max-w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" type="file" accept="application/json,.json" @change="importHistory">
+          </label>
+
+          <p class="mt-4 rounded-md border border-line bg-soft p-3 text-sm leading-6 text-muted">
+            Import automatically loads saved records into the YTD fields.
+          </p>
+          <p class="mt-3 text-sm font-bold text-teal-dark" x-show="historyMessage" x-text="historyMessage"></p>
+
+          <div class="my-5 h-px bg-line"></div>
+
+          <h3 class="text-sm font-black tracking-normal">Reset YTD from history</h3>
+          <p class="mt-1 text-sm leading-6 text-muted">Not needed in normal flow. Importing JSON and adding payments already update YTD fields.</p>
+          <button
+            class="mt-3 min-h-12 w-full rounded-md px-4 py-3 text-sm font-black leading-5 transition disabled:cursor-not-allowed"
+            :class="historyApplyPreview.canApply ? 'bg-teal text-white shadow-sm' : 'border border-line bg-soft text-muted opacity-70'"
+            @click="applyHistoryYtd()"
+            type="button"
+            :disabled="!historyApplyPreview.canApply"
+          >
+            Reset YTD fields
+          </button>
+          <p class="mt-2 rounded-md border border-line bg-soft p-3 text-xs font-bold leading-5 text-muted" x-text="historyApplyPreview.status"></p>
+
+          <div class="my-5 h-px bg-line"></div>
+
+          <h3 class="text-sm font-black tracking-normal">Opening balance</h3>
+          <p class="mt-1 text-sm leading-6 text-muted">Use when prior payroll happened outside this JSON history.</p>
+          <button
+            class="mt-3 min-h-14 w-full rounded-md px-4 py-3 text-sm font-black leading-5 transition disabled:cursor-not-allowed"
+            :class="openingBalancePreview.canAdd ? 'bg-teal text-white shadow-sm' : 'border border-line bg-soft text-muted opacity-70'"
+            @click="addOpeningBalance"
+            type="button"
+            :disabled="!openingBalancePreview.canAdd"
+          >
+            Save current YTD as opening balance
+          </button>
+          <p class="mt-2 rounded-md border border-line bg-soft p-3 text-xs font-bold leading-5 text-muted" x-text="openingBalancePreview.status"></p>
+
+          <div class="my-5 h-px bg-line"></div>
+
+          <h3 class="mb-3 text-sm font-black tracking-normal">YTD summary from history</h3>
+          <div class="grid gap-2">
+            <template x-for="metric in historyYtdMetrics" :key="metric.label">
+              <div class="flex items-center justify-between gap-3 text-sm">
+                <span class="text-muted" x-text="metric.label"></span>
+                <strong class="text-right" x-text="metric.value"></strong>
+              </div>
+            </template>
+          </div>
+        </aside>
+
+        <form class="rounded-lg border border-line bg-panel p-5 shadow-sm" @submit.prevent="calculate">
+          <div class="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-black tracking-normal">Set current payment</h2>
+              <p class="mt-1 text-sm text-muted">Calculate one ad hoc lump-sum payment.</p>
+            </div>
+            <span class="min-w-[72px] rounded-full px-4 py-2 text-center text-xs font-black leading-none" :class="hasUnsavedChanges ? 'bg-amber/10 text-amber' : 'bg-teal-soft text-teal-dark'" x-text="hasUnsavedChanges ? 'Unsaved' : 'Saved'"></span>
+          </div>
+
+          <div class="mb-3 grid gap-1.5 text-sm font-bold text-muted">
+            <div class="flex items-center gap-2">
+              Payment date
+              <button class="grid size-5 place-items-center rounded-full border border-line bg-white text-xs font-black text-teal-dark" @click.prevent="openHelp('paidOn')" type="button" aria-label="Explain payment date">?</button>
+            </div>
+            <input class="h-11 rounded-md border border-line px-3 text-ink" x-model="form.paidOn" type="date" min="2026-01-01" max="2026-12-31">
+            <span class="text-xs font-bold leading-5 text-muted" x-text="`Using ${rates.effectivePeriod} constants.`"></span>
+          </div>
+
+          <div class="mb-3 grid gap-1.5 text-sm font-bold text-muted">
+            <div class="flex items-center gap-2">
+              Current lump-sum gross
+              <button class="grid size-5 place-items-center rounded-full border border-line bg-white text-xs font-black text-teal-dark" @click.prevent="openHelp('currentGross')" type="button" aria-label="Explain current lump-sum gross">?</button>
+            </div>
+            <input class="h-11 rounded-md border border-line px-3 text-ink" x-model="form.currentGross" inputmode="decimal">
+          </div>
+
+          <div class="mb-3 rounded-md border border-line bg-soft p-3">
+            <h3 class="text-sm font-black tracking-normal">Prior YTD context</h3>
+            <p class="mt-1 text-xs font-bold leading-5 text-muted">Used for the marginal tax bracket, CPP/CPP2 room, and amounts already withheld.</p>
+          </div>
+
+          <div class="mb-3 grid gap-1.5 text-sm font-bold text-muted">
+            <div class="flex items-center gap-2">
+              YTD regular salary/wages before this payment
+              <button class="grid size-5 shrink-0 place-items-center rounded-full border border-line bg-white text-xs font-black text-teal-dark" @click.prevent="openHelp('ytdRegularPay')" type="button" aria-label="Explain YTD regular salary or wages">?</button>
+            </div>
+            <input class="h-11 rounded-md border border-line px-3 text-ink" x-model="form.ytdRegularPay" inputmode="decimal">
+            <span class="text-xs font-bold leading-5 text-muted">Year-to-date total, not monthly pay.</span>
+          </div>
+          <div class="mb-3 grid gap-1.5 text-sm font-bold text-muted">
+            <div class="flex items-center gap-2">
+              YTD prior ad hoc lump-sum salary
+              <button class="grid size-5 shrink-0 place-items-center rounded-full border border-line bg-white text-xs font-black text-teal-dark" @click.prevent="openHelp('ytdPriorLumpSums')" type="button" aria-label="Explain YTD prior ad hoc lump-sum salary">?</button>
+            </div>
+            <input class="h-11 rounded-md border border-line px-3 text-ink" x-model="form.ytdPriorLumpSums" inputmode="decimal">
+            <span class="text-xs font-bold leading-5 text-muted">Year-to-date total of previous one-off payroll amounts.</span>
+          </div>
+          <div class="mb-3 grid gap-1.5 text-sm font-bold text-muted">
+            <div class="flex items-center gap-2">
+              YTD CPP pensionable earnings
+              <button class="grid size-5 shrink-0 place-items-center rounded-full border border-line bg-white text-xs font-black text-teal-dark" @click.prevent="openHelp('ytdPensionableEarnings')" type="button" aria-label="Explain YTD CPP pensionable earnings">?</button>
+            </div>
+            <input class="h-11 rounded-md border border-line px-3 text-ink" x-model="form.ytdPensionableEarnings" inputmode="decimal">
+            <span class="text-xs font-bold leading-5 text-muted">Usually same as salary/wages + prior lump sums. Leave as 0 to derive it automatically.</span>
+          </div>
+          <div class="mb-3 grid gap-1.5 text-sm font-bold text-muted">
+            <div class="flex items-center gap-2">
+              YTD employee CPP already withheld
+              <button class="grid size-5 shrink-0 place-items-center rounded-full border border-line bg-white text-xs font-black text-teal-dark" @click.prevent="openHelp('ytdEmployeeCpp')" type="button" aria-label="Explain YTD employee CPP already withheld">?</button>
+            </div>
+            <input class="h-11 rounded-md border border-line px-3 text-ink" x-model="form.ytdEmployeeCpp" inputmode="decimal">
+          </div>
+          <div class="mb-3 grid gap-1.5 text-sm font-bold text-muted">
+            <div class="flex items-center gap-2">
+              YTD employee CPP2 already withheld
+              <button class="grid size-5 shrink-0 place-items-center rounded-full border border-line bg-white text-xs font-black text-teal-dark" @click.prevent="openHelp('ytdEmployeeCpp2')" type="button" aria-label="Explain YTD employee CPP2 already withheld">?</button>
+            </div>
+            <input class="h-11 rounded-md border border-line px-3 text-ink" x-model="form.ytdEmployeeCpp2" inputmode="decimal">
+          </div>
+          <div class="mb-3 grid gap-1.5 text-sm font-bold text-muted">
+            <div class="flex items-center gap-2">
+              YTD income tax already withheld
+              <button class="grid size-5 shrink-0 place-items-center rounded-full border border-line bg-white text-xs font-black text-teal-dark" @click.prevent="openHelp('ytdIncomeTaxWithheld')" type="button" aria-label="Explain YTD income tax already withheld">?</button>
+            </div>
+            <input class="h-11 rounded-md border border-line px-3 text-ink" x-model="form.ytdIncomeTaxWithheld" inputmode="decimal">
+          </div>
+
+          <label class="mb-3 grid gap-1.5 text-sm font-bold text-muted">
+            <div class="flex items-center gap-2">
+              Income tax mode
+              <button class="grid size-5 shrink-0 place-items-center rounded-full border border-line bg-white text-xs font-black text-teal-dark" @click.prevent="openHelp('taxMode')" type="button" aria-label="Explain income tax mode">?</button>
+            </div>
+            <select class="h-11 rounded-md border border-line px-3 text-ink" x-model="form.taxMode">
+              <option value="target-zero">Target zero balance</option>
+              <option value="cra-marginal">CRA marginal estimate</option>
+            </select>
+            <span class="text-xs font-bold leading-5 text-muted">Before July, targets January payroll basis. From July onward, targets final annual tax.</span>
+          </label>
+
+          <div class="mb-3 flex items-center gap-3 text-sm font-bold text-ink">
+            <label class="flex items-center gap-3">
+              <input class="size-5 accent-teal" x-model="form.conservativeMode" type="checkbox">
+              Conservative mode
+            </label>
+            <button class="grid size-5 place-items-center rounded-full border border-line bg-white text-xs font-black text-teal-dark" @click.prevent="openHelp('conservativeMode')" type="button" aria-label="Explain conservative mode">?</button>
+          </div>
+          <label class="mb-3 grid gap-1.5 text-sm font-bold text-muted">
+            Conservative offset
+            <select class="h-11 rounded-md border border-line px-3 text-ink" x-model="form.conservativeIncrement">
+              <option value="50">$50</option>
+              <option value="100">$100</option>
+              <option value="200">$200</option>
+            </select>
+          </label>
+
+          <button class="mt-3 h-11 w-full rounded-md bg-teal px-4 font-black text-white" type="submit">Calculate</button>
+          <div class="mt-3 text-sm text-danger" aria-live="polite">
+            <template x-for="error in errors" :key="error.field + error.message">
+              <p x-text="error.message"></p>
+            </template>
+          </div>
+        </form>
+
+        <section class="rounded-lg border border-line bg-panel p-5 shadow-sm">
+          <div class="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-black tracking-normal">Current payment result</h2>
+              <p class="mt-1 text-sm text-muted">This panel is only the current payment, not lifetime totals.</p>
+            </div>
+            <span class="rounded-full bg-soft px-3 py-1 text-xs font-bold text-muted" x-text="result ? result.tax.method : 'Awaiting calculation'"></span>
+          </div>
+
+          <div class="grid gap-4">
+            <section class="rounded-md border border-line bg-white p-4">
+              <h3 class="mb-3 text-sm font-black uppercase tracking-normal text-teal-dark">Employee payment</h3>
+              <div class="grid gap-3 md:grid-cols-3">
+                <template x-for="metric in employeeDeductionMetrics" :key="metric.label">
+                  <div class="rounded-md bg-soft p-4">
+                    <span class="block text-xs font-bold text-muted" x-text="metric.label"></span>
+                    <strong class="mt-1 block text-2xl font-black tracking-normal" x-text="metric.value"></strong>
+                    <small class="mt-1 block text-xs font-bold leading-5 text-muted" x-text="metric.detail"></small>
+                  </div>
+                </template>
+              </div>
+            </section>
+
+            <section class="rounded-md border border-line bg-white p-4">
+              <h3 class="mb-3 text-sm font-black uppercase tracking-normal text-teal-dark">CRA remittance</h3>
+              <div class="grid gap-3 md:grid-cols-3">
+                <template x-for="metric in remittanceMetrics" :key="metric.label">
+                  <div class="rounded-md bg-soft p-4">
+                    <span class="block text-xs font-bold text-muted" x-text="metric.label"></span>
+                    <strong class="mt-1 block text-2xl font-black tracking-normal" x-text="metric.value"></strong>
+                    <small class="mt-1 block text-xs font-bold leading-5 text-muted" x-text="metric.detail"></small>
+                  </div>
+                </template>
+              </div>
+            </section>
+
+            <section class="rounded-md border border-amber/30 bg-amber/5 p-4">
+              <h3 class="mb-3 text-sm font-black uppercase tracking-normal text-amber">Employer cost</h3>
+              <div class="grid gap-3 md:grid-cols-2">
+                <template x-for="metric in employerCostMetrics" :key="metric.label">
+                  <div class="rounded-md bg-white p-4">
+                    <span class="block text-xs font-bold text-muted" x-text="metric.label"></span>
+                    <strong class="mt-1 block text-2xl font-black tracking-normal" x-text="metric.value"></strong>
+                    <small class="mt-1 block text-xs font-bold leading-5 text-muted" x-text="metric.detail"></small>
+                  </div>
+                </template>
+              </div>
+            </section>
+
+            <section class="rounded-md border border-line bg-soft p-4" x-show="taxComparison">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h3 class="text-sm font-black uppercase tracking-normal text-teal-dark" x-text="taxComparison?.label"></h3>
+                  <p class="mt-1 text-sm font-bold leading-6 text-muted" x-text="taxComparison?.detail"></p>
+                </div>
+                <div class="grid gap-2 text-sm md:min-w-[260px]">
+                  <div class="flex items-center justify-between gap-4">
+                    <span class="font-bold text-muted">Current mode</span>
+                    <strong x-text="taxComparison?.current"></strong>
+                  </div>
+                  <div class="flex items-center justify-between gap-4">
+                    <span class="font-bold text-muted">Comparison</span>
+                    <strong x-text="taxComparison?.comparison"></strong>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="mt-4 flex items-center gap-3">
+            <button class="h-11 min-w-[280px] rounded-md bg-teal px-4 font-black text-white disabled:cursor-not-allowed disabled:opacity-40" @click="addCurrentPayment" type="button" :disabled="!canAddCurrentPayment">Add calculation to history</button>
+            <span class="text-sm font-bold text-muted" x-text="canAddCurrentPayment ? 'Then export JSON when finished.' : 'Calculate current form values before adding.'"></span>
+          </div>
+        </section>
+      </section>
+
+      <section class="grid gap-4 xl:grid-cols-[430px_minmax(0,1fr)]">
+        <section class="rounded-lg border border-line bg-panel p-5 shadow-sm">
+          <div class="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-black tracking-normal">Year-end position</h2>
+              <p class="mt-1 text-sm text-muted">Based on saved history only.</p>
+            </div>
+            <span class="rounded-full bg-soft px-3 py-1 text-xs font-bold" :class="validatorClass" x-text="validator.status"></span>
+          </div>
+          <p class="mb-4 rounded-md border border-line bg-soft p-3 text-sm leading-6 text-muted" x-text="validatorSummary"></p>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <template x-for="metric in validatorMetrics" :key="metric.label">
+              <div class="rounded-md border border-line bg-white p-4">
+                <span class="block text-xs font-bold text-muted" x-text="metric.label"></span>
+                <strong class="mt-1 block text-xl font-black tracking-normal" x-text="metric.value"></strong>
+                <small class="mt-1 block text-xs font-bold leading-5 text-muted" x-show="metric.detail" x-text="metric.detail"></small>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <section class="rounded-lg border border-line bg-panel p-5 shadow-sm">
+          <div class="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 class="text-lg font-black tracking-normal">Payment history</h2>
+              <p class="mt-1 text-sm text-muted">Records that will be exported to JSON.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="min-w-[68px] rounded-full bg-soft px-4 py-2 text-center text-xs font-black leading-none text-muted" x-text="historyCountLabel"></span>
+              <button class="h-10 rounded-md px-4 text-sm font-black transition disabled:cursor-not-allowed" :class="history.length > 0 ? 'bg-teal text-white' : 'border border-line bg-soft text-muted opacity-70'" @click="exportHistory" type="button" :disabled="history.length === 0">Export JSON</button>
+              <button class="h-10 rounded-md px-4 text-sm font-black transition disabled:cursor-not-allowed" :class="history.length > 0 ? 'bg-teal-soft text-teal-dark' : 'border border-line bg-soft text-muted opacity-70'" @click="clearHistory" type="button" :disabled="history.length === 0">Clear session</button>
+            </div>
+          </div>
+          <p class="mb-4 rounded-md border border-line bg-soft p-3 text-sm leading-6 text-muted">
+            Export downloads this table as a JSON file. Import that file next time to restore prior payments.
+          </p>
+
+          <template x-if="history.length === 0">
+            <p class="rounded-md border border-dashed border-line bg-soft p-4 text-sm text-muted">No JSON history loaded for this session.</p>
+          </template>
+
+          <div class="overflow-x-auto" x-show="history.length > 0">
+            <table class="w-full min-w-[980px] border-collapse text-sm">
+              <thead>
+                <tr class="border-b border-line text-left text-xs uppercase tracking-normal text-muted">
+                  <th class="py-3 pr-3">#</th>
+                  <th class="py-3 pr-3">Type</th>
+                  <th class="py-3 pr-3">Paid on</th>
+                  <th class="py-3 pr-3">Gross pay</th>
+                  <th class="py-3 pr-3">Pensionable</th>
+                  <th class="py-3 pr-3">Employee CPP</th>
+                  <th class="py-3 pr-3">Income tax withheld</th>
+                  <th class="py-3 pr-3">Net pay</th>
+                  <th class="py-3 pr-3">CRA remittance</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="record in historyRows" :key="record.id">
+                  <tr class="border-b border-line">
+                    <td class="py-3 pr-3 font-bold text-muted" x-text="record.rowNumber"></td>
+                    <td class="py-3 pr-3">
+                      <span class="rounded-full bg-soft px-2 py-1 text-xs font-black text-teal-dark" x-text="record.typeLabel"></span>
+                    </td>
+                    <td class="py-3 pr-3" x-text="record.paidOn"></td>
+                    <td class="py-3 pr-3 font-bold" x-text="money(record.grossPay)"></td>
+                    <td class="py-3 pr-3" x-text="money(record.pensionableEarnings)"></td>
+                    <td class="py-3 pr-3">
+                      <strong x-text="money(record.employeeCppTotal)"></strong>
+                      <span class="block text-xs font-bold text-muted" x-text="`${money(record.employeeCpp)} / ${money(record.employeeCpp2 || 0)}`"></span>
+                    </td>
+                    <td class="py-3 pr-3">
+                      <strong x-text="money(record.incomeTaxWithheld)"></strong>
+                      <span class="block text-xs font-bold text-muted" x-text="record.incomeTaxDetail"></span>
+                    </td>
+                    <td class="py-3 pr-3 font-bold" x-text="money(record.netPay)"></td>
+                    <td class="py-3 pr-3 font-bold" x-text="money(record.employerRemittance)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+      </div>
+
+      <section class="grid gap-4" x-show="activeView === 'constants'">
+        <section class="rounded-lg border border-line bg-panel p-5 shadow-sm">
+          <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 class="text-2xl font-black tracking-normal">2026 BC payroll constants</h2>
+              <p class="mt-1 text-sm leading-6 text-muted">Inspectable source data used by the calculator. Formula code imports the same JSON constants committed in the repo.</p>
+            </div>
+            <a class="rounded-md bg-teal-soft px-4 py-3 text-sm font-black text-teal-dark" :href="inspectedRates.sourceUrl" target="_blank" rel="noreferrer">Open CRA source</a>
+          </div>
+          <div class="grid gap-3 md:grid-cols-3">
+            <div class="rounded-md border border-line bg-soft p-4">
+              <span class="block text-xs font-bold text-muted">Tax year</span>
+              <strong class="mt-1 block text-xl font-black" x-text="inspectedRates.taxYear"></strong>
+            </div>
+            <div class="rounded-md border border-line bg-soft p-4">
+              <span class="block text-xs font-bold text-muted">Jurisdiction</span>
+              <strong class="mt-1 block text-xl font-black" x-text="inspectedRates.jurisdiction"></strong>
+            </div>
+            <div class="rounded-md border border-line bg-soft p-4">
+              <span class="block text-xs font-bold text-muted">Effective period</span>
+              <strong class="mt-1 block text-xl font-black" x-text="inspectedRates.effectivePeriod"></strong>
+            </div>
+          </div>
+          <p class="mt-4 rounded-md border border-line bg-white p-4 text-sm leading-6 text-muted" x-text="inspectedRates.source"></p>
+          <div class="mt-4 grid gap-3 md:grid-cols-2">
+            <template x-for="period in ratePeriodRows" :key="period.effectivePeriod">
+              <button class="rounded-md border border-line bg-white p-4 text-left transition hover:border-teal" :class="period.inspected ? 'border-teal bg-teal-soft/40' : ''" type="button" @click="inspectRatePeriod(period.effectivePeriod)" :aria-pressed="period.inspected">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <span class="block text-xs font-bold text-muted">Effective period</span>
+                    <strong class="mt-1 block text-base font-black" x-text="period.effectivePeriod"></strong>
+                  </div>
+                  <span class="rounded-full px-3 py-1 text-xs font-black" :class="period.inspected ? 'bg-teal text-white' : 'bg-soft text-muted'" x-text="period.inspected ? 'Viewing' : 'View'"></span>
+                </div>
+                <p class="mt-2 text-sm leading-6 text-muted" x-text="period.source"></p>
+                <span class="mt-3 inline-block text-xs font-black uppercase tracking-normal text-teal-dark" x-show="period.active">Used by current payment date</span>
+              </button>
+            </template>
+          </div>
+          <section class="mt-4 rounded-md border border-line bg-white p-4">
+            <div class="mb-3 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 class="text-base font-black tracking-normal">Annual validator basis</h3>
+                <p class="mt-1 text-sm leading-6 text-muted">Used by the year-end position estimate. Payroll periods above can override this basis for payment-date withholding.</p>
+              </div>
+              <span class="rounded-full bg-soft px-3 py-2 text-xs font-black text-muted" x-text="annualRates.effectivePeriod"></span>
+            </div>
+            <div class="grid gap-2 md:grid-cols-3">
+              <template x-for="row in annualBasisRows" :key="row.label">
+                <div class="rounded-md border border-line bg-soft p-3">
+                  <span class="block text-xs font-bold text-muted" x-text="row.label"></span>
+                  <strong class="mt-1 block text-lg font-black" x-text="row.value"></strong>
+                </div>
+              </template>
+            </div>
+          </section>
+          <div class="mt-4 grid gap-2">
+            <template x-for="note in inspectedRates.sourceNotes || []" :key="note">
+              <p class="rounded-md border border-line bg-soft p-3 text-xs font-bold leading-5 text-muted" x-text="note"></p>
+            </template>
+          </div>
+        </section>
+
+        <section class="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
+          <section class="rounded-lg border border-line bg-panel p-5 shadow-sm">
+            <h2 class="mb-4 text-lg font-black tracking-normal">CPP and CPP2</h2>
+            <div class="grid gap-2">
+              <template x-for="row in cppConstantRows" :key="row.label">
+                <div class="rounded-md border border-line bg-white p-3">
+                  <div class="flex items-start justify-between gap-3">
+                    <span class="text-sm font-bold text-muted" x-text="row.label"></span>
+                    <strong class="text-right" x-text="row.value"></strong>
+                  </div>
+                  <p class="mt-1 text-xs font-bold leading-5 text-muted" x-text="row.note"></p>
+                </div>
+              </template>
+            </div>
+          </section>
+
+          <section class="rounded-lg border border-line bg-panel p-5 shadow-sm">
+            <h2 class="mb-4 text-lg font-black tracking-normal">Federal tax brackets</h2>
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-[620px] border-collapse text-sm">
+                <thead>
+                  <tr class="border-b border-line text-left text-xs uppercase tracking-normal text-muted">
+                    <th class="py-3 pr-3">Taxable income</th>
+                    <th class="py-3 pr-3">Rate</th>
+                    <th class="py-3 pr-3">Constant</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="row in federalBracketRows" :key="row.range">
+                    <tr class="border-b border-line">
+                      <td class="py-3 pr-3 font-bold" x-text="row.range"></td>
+                      <td class="py-3 pr-3" x-text="row.rate"></td>
+                      <td class="py-3 pr-3" x-text="row.constant"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
+          <section class="rounded-lg border border-line bg-panel p-5 shadow-sm">
+            <h2 class="mb-4 text-lg font-black tracking-normal">Credits and reductions</h2>
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+              <div>
+                <h3 class="mb-2 text-sm font-black uppercase tracking-normal text-teal-dark">Federal</h3>
+                <div class="grid gap-2">
+                  <template x-for="row in federalCreditRows" :key="row.label">
+                    <div class="flex items-center justify-between gap-3 rounded-md border border-line bg-white p-3 text-sm">
+                      <span class="font-bold text-muted" x-text="row.label"></span>
+                      <strong class="text-right" x-text="row.value"></strong>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <div>
+                <h3 class="mb-2 text-sm font-black uppercase tracking-normal text-teal-dark">British Columbia</h3>
+                <div class="grid gap-2">
+                  <template x-for="row in bcCreditRows" :key="row.label">
+                    <div class="flex items-center justify-between gap-3 rounded-md border border-line bg-white p-3 text-sm">
+                      <span class="font-bold text-muted" x-text="row.label"></span>
+                      <strong class="text-right" x-text="row.value"></strong>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-lg border border-line bg-panel p-5 shadow-sm">
+            <h2 class="mb-4 text-lg font-black tracking-normal">BC tax brackets</h2>
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-[620px] border-collapse text-sm">
+                <thead>
+                  <tr class="border-b border-line text-left text-xs uppercase tracking-normal text-muted">
+                    <th class="py-3 pr-3">Taxable income</th>
+                    <th class="py-3 pr-3">Rate</th>
+                    <th class="py-3 pr-3">Constant</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="row in bcBracketRows" :key="row.range">
+                    <tr class="border-b border-line">
+                      <td class="py-3 pr-3 font-bold" x-text="row.range"></td>
+                      <td class="py-3 pr-3" x-text="row.rate"></td>
+                      <td class="py-3 pr-3" x-text="row.constant"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <div class="fixed inset-0 z-50 grid place-items-center bg-ink/35 px-4" x-show="helpDialog" x-transition.opacity @click.self="closeHelp" x-cloak>
+        <section class="w-full max-w-[520px] rounded-lg border border-line bg-white p-5 shadow-lg" role="dialog" aria-modal="true" :aria-label="helpDialog?.title">
+          <div class="mb-3 flex items-start justify-between gap-4">
+            <h2 class="text-lg font-black tracking-normal" x-text="helpDialog?.title"></h2>
+            <button class="grid size-8 shrink-0 place-items-center rounded-md bg-soft text-sm font-black text-teal-dark" @click="closeHelp" type="button" aria-label="Close help">&times;</button>
+          </div>
+          <p class="text-sm leading-6 text-muted" x-text="helpDialog?.body"></p>
+          <p class="mt-3 rounded-md border border-line bg-soft p-3 text-sm font-bold leading-6 text-ink" x-text="helpDialog?.effect"></p>
+        </section>
+      </div>
+    </main>
+
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>

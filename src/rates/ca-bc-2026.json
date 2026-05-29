@@ -1,0 +1,105 @@
+{
+  "taxYear": 2026,
+  "jurisdiction": "British Columbia",
+  "sourceNotes": [
+    "CRA T4032-BC effective January 1, 2026 applies before the July payroll update.",
+    "CRA T4127 123rd edition effective July 1, 2026 includes prorated BC amounts for July to December payroll."
+  ],
+  "annualTax": {
+    "taxYear": 2026,
+    "jurisdiction": "British Columbia",
+    "effectivePeriod": "2026 annual final tax basis",
+    "effectiveFrom": "2026-01-01",
+    "effectiveTo": "2026-12-31",
+    "sourceUrl": "https://www2.gov.bc.ca/gov/topic.page?id=05AC3C069516494DBF1B196BC31BA627&title=General+Tax+Credits",
+    "source": "BC 2026 annual statutory tax estimate basis; payroll withholding periods may use prorated CRA catch-up constants",
+    "cpp": {
+      "ympe": 74600,
+      "yampe": 85000,
+      "basicExemption": 3500,
+      "baseRate": 0.0495,
+      "firstAdditionalRate": 0.01,
+      "cppRate": 0.0595,
+      "cpp2Rate": 0.04,
+      "maxCpp": 4230.45,
+      "maxCpp2": 416
+    },
+    "federal": {
+      "lowestRate": 0.14,
+      "basicPersonalAmount": 16452,
+      "canadaEmploymentAmount": 1501,
+      "brackets": [
+        { "upTo": 58523, "rate": 0.14, "constant": 0 },
+        { "upTo": 117045, "rate": 0.205, "constant": 3804 },
+        { "upTo": 181440, "rate": 0.26, "constant": 10241 },
+        { "upTo": 258482, "rate": 0.29, "constant": 15685 },
+        { "upTo": 1e100, "rate": 0.33, "constant": 26024 }
+      ]
+    },
+    "bc": {
+      "lowestRate": 0.056,
+      "basicPersonalAmount": 13216,
+      "taxReductionMax": 690,
+      "taxReductionThreshold": 25570,
+      "taxReductionEnd": 44952,
+      "taxReductionRate": 0.0356,
+      "brackets": [
+        { "upTo": 50363, "rate": 0.056, "constant": 0 },
+        { "upTo": 100728, "rate": 0.077, "constant": 1058 },
+        { "upTo": 115648, "rate": 0.105, "constant": 3878 },
+        { "upTo": 140430, "rate": 0.1229, "constant": 5948 },
+        { "upTo": 190405, "rate": 0.147, "constant": 9332 },
+        { "upTo": 265545, "rate": 0.168, "constant": 13331 },
+        { "upTo": 1e100, "rate": 0.205, "constant": 23156 }
+      ]
+    }
+  },
+  "payrollPeriods": [
+    {
+      "effectivePeriod": "2026-01-01 to 2026-06-30",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": "2026-06-30",
+      "sourceUrl": "https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4032-payroll-deductions-tables/t4032bc-jan.html",
+      "source": "CRA T4032-BC Payroll Deductions Tables, effective January 1, 2026",
+      "overrides": {
+        "bc": {
+          "lowestRate": 0.0506,
+          "taxReductionMax": 575,
+          "taxReductionEnd": 41722,
+          "brackets": [
+            { "upTo": 50363, "rate": 0.0506, "constant": 0 },
+            { "upTo": 100728, "rate": 0.077, "constant": 1330 },
+            { "upTo": 115648, "rate": 0.105, "constant": 4150 },
+            { "upTo": 140430, "rate": 0.1229, "constant": 6220 },
+            { "upTo": 190405, "rate": 0.147, "constant": 9604 },
+            { "upTo": 265545, "rate": 0.168, "constant": 13603 },
+            { "upTo": 1e100, "rate": 0.205, "constant": 23428 }
+          ]
+        }
+      }
+    },
+    {
+      "effectivePeriod": "2026-07-01 to 2026-12-31",
+      "effectiveFrom": "2026-07-01",
+      "effectiveTo": "2026-12-31",
+      "sourceUrl": "https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jul/t4127-jul-payroll-deductions-formulas.html",
+      "source": "CRA T4127 Payroll Deductions Formulas, 123rd edition, effective July 1, 2026",
+      "overrides": {
+        "bc": {
+          "lowestRate": 0.0614,
+          "taxReductionMax": 805,
+          "taxReductionEnd": 44952,
+          "brackets": [
+            { "upTo": 50363, "rate": 0.0614, "constant": 0 },
+            { "upTo": 100728, "rate": 0.077, "constant": 786 },
+            { "upTo": 115648, "rate": 0.105, "constant": 3606 },
+            { "upTo": 140430, "rate": 0.1229, "constant": 5676 },
+            { "upTo": 190405, "rate": 0.147, "constant": 9061 },
+            { "upTo": 265545, "rate": 0.168, "constant": 13059 },
+            { "upTo": 1e100, "rate": 0.205, "constant": 22884 }
+          ]
+        }
+      }
+    }
+  ]
+}
