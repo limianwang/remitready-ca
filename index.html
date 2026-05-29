@@ -429,8 +429,8 @@
           <p class="mt-4 rounded-md border border-line bg-white p-4 text-sm leading-6 text-muted" x-text="inspectedRates.source"></p>
           <div class="mt-4 grid gap-3 md:grid-cols-2">
             <template x-for="period in ratePeriodRows" :key="period.effectivePeriod">
-              <button class="rounded-md border border-line bg-white p-4 text-left transition hover:border-teal" :class="period.inspected ? 'border-teal bg-teal-soft/40' : ''" type="button" @click="inspectRatePeriod(period.effectivePeriod)" :aria-pressed="period.inspected">
-                <div class="flex items-start justify-between gap-3">
+              <button class="flex min-h-full flex-col justify-start rounded-md border border-line bg-white p-4 text-left transition hover:border-teal" :class="period.inspected ? 'border-teal bg-teal-soft/40' : ''" type="button" @click="inspectRatePeriod(period.effectivePeriod)" :aria-pressed="period.inspected">
+                <div class="flex w-full items-start justify-between gap-3">
                   <div>
                     <span class="block text-xs font-bold text-muted">Effective period</span>
                     <strong class="mt-1 block text-base font-black" x-text="period.effectivePeriod"></strong>
